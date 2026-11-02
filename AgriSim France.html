@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>AgriSim France - Simulation Réaliste de la Crise Agricole</title>
+
+    <!-- PWA & Apple Touch Icon Configuration -->
+    <link rel="apple-touch-icon" sizes="180x180" href="icon_2.png">
+    <link rel="icon" type="image/png" href="icon_2.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AgriSim France">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        emerald: { 800: '#065f46', 900: '#064e3b', 950: '#022c22' }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col selection:bg-emerald-500 selection:text-white">
+
+    <!-- Header / Navbar -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-emerald-600 rounded-lg text-white shadow-lg shadow-emerald-900/30">
+                    <i data-lucide="sprout" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-none text-emerald-400">AgriSim France <span class="text-xs font-normal text-rose-400 border border-rose-900/50 bg-rose-950/40 px-1.5 py-0.5 rounded ml-2">Édition Réalité</span></h1>
+                    <span class="text-xs text-slate-400">Simulateur Technico-Économique & Crise Agricole</span>
+                </div>
+            </div>
+
+            <!-- Global Status Bar -->
+            <div id="game-status-bar" class="hidden md:flex items-center gap-4 text-xs">
+                <div class="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+                    <i data-lucide="calendar" class="w-4 h-4 text-emerald-400"></i>
+                    <span id="stat-date" class="font-semibold text-slate-200">Mois 1 (An 1)</span>
+                </div>
+                <div class="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+                    <i data-lucide="wallet" class="w-4 h-4 text-emerald-400"></i>
+                    <span id="stat-cash" class="font-bold text-emerald-300">50 000 €</span>
+                </div>
+                <!-- Stress / Charge Mentale -->
+                <div class="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+                    <i data-lucide="brain text-rose-400" class="w-4 h-4"></i>
+                    <div class="flex flex-col">
+                        <span class="text-[10px] text-slate-400 leading-none">Charge Mentale</span>
+                        <span id="stat-stress" class="font-bold text-rose-400 leading-tight">20%</span>
+                    </div>
+                </div>
+                <!-- PAC Status -->
+                <div class="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+                    <i data-lucide="file-text" class="w-4 h-4 text-indigo-400"></i>
+                    <span id="stat-pac-status" class="font-medium text-amber-400">PAC: Non déposée</span>
+                </div>
+            </div>
+
+            <!-- Control Buttons -->
+            <div id="game-controls" class="hidden flex items-center gap-3">
+                <button id="btn-toggle-bot" onclick="toggleBot()" class="px-3.5 py-1.5 rounded-lg border border-indigo-500/50 bg-indigo-950/40 text-indigo-300 hover:bg-indigo-900/60 text-xs font-semibold flex items-center gap-2 transition">
+                    <i data-lucide="bot" class="w-4 h-4"></i>
+                    <span id="bot-status-text">Mode BOT : Inactif</span>
+                </button>
+                <button onclick="nextTurn()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-lg shadow-emerald-900/40 transition">
+                    <span>Mois Suivant</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- REGION SELECTION SCREEN -->
+        <div id="screen-setup" class="space-y-6">
+            <div class="text-center max-w-2xl mx-auto space-y-2">
+                <h2 class="text-3xl font-bold text-white">Installation Agricole & Réalité Terrain</h2>
+                <p class="text-slate-400 text-sm">Faites face aux défis réels de l'agriculture française : pressions de la grande distribution, aléas climatiques violents, contrôles administratifs et crises sanitaires du cheptel.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-4">
+                <!-- Bretagne -->
+                <div onclick="selectRegion('bretagne')" class="group cursor-pointer bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-emerald-500/50 rounded-xl p-5 transition-all flex flex-col justify-between hover:shadow-xl hover:shadow-emerald-950/30">
+                    <div>
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="font-bold text-lg text-emerald-400 group-hover:text-emerald-300">Bretagne</h3>
+                            <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Lait & Porcs</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-4 leading-relaxed">Pression forte de l'industrie laitière. Risques environnementaux (Nitrates) et contrôles stricts.</p>
+                        <div class="space-y-1.5 text-xs border-t border-slate-800 pt-3 text-slate-300">
+                            <div class="flex justify-between"><span>Foncier:</span> <span class="font-semibold">6 500 € / ha</span></div>
+                            <div class="flex justify-between"><span>Pression Normative:</span> <span class="font-semibold text-rose-400">Très Élevée</span></div>
+                        </div>
+                    </div>
+                    <button class="w-full mt-5 py-2 bg-slate-800 group-hover:bg-emerald-600 text-slate-200 group-hover:text-white text-xs font-semibold rounded-lg transition">S'installer en Bretagne</button>
+                </div>
+
+                <!-- Nouvelle-Aquitaine -->
+                <div onclick="selectRegion('aquitaine')" class="group cursor-pointer bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-emerald-500/50 rounded-xl p-5 transition-all flex flex-col justify-between hover:shadow-xl hover:shadow-emerald-950/30">
+                    <div>
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="font-bold text-lg text-emerald-400 group-hover:text-emerald-300">Nouvelle-Aquitaine</h3>
+                            <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Poly. & Vigne</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-4 leading-relaxed">Sécheresses estivales et conflits sur l'eau (bassines). Gel printanier récurrent.</p>
+                        <div class="space-y-1.5 text-xs border-t border-slate-800 pt-3 text-slate-300">
+                            <div class="flex justify-between"><span>Foncier:</span> <span class="font-semibold">8 000 € / ha</span></div>
+                            <div class="flex justify-between"><span>Aléa Climat:</span> <span class="font-semibold text-rose-400">Sécheresse / Gel</span></div>
+                        </div>
+                    </div>
+                    <button class="w-full mt-5 py-2 bg-slate-800 group-hover:bg-emerald-600 text-slate-200 group-hover:text-white text-xs font-semibold rounded-lg transition">S'installer en Aquitaine</button>
+                </div>
+
+                <!-- Grand Est -->
+                <div onclick="selectRegion('grandest')" class="group cursor-pointer bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-emerald-500/50 rounded-xl p-5 transition-all flex flex-col justify-between hover:shadow-xl hover:shadow-emerald-950/30">
+                    <div>
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="font-bold text-lg text-emerald-400 group-hover:text-emerald-300">Grand Est</h3>
+                            <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Céréales</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-4 leading-relaxed">Dépendance directe aux marchés mondiaux (Euronext) et au coût de l'énergie/engrais.</p>
+                        <div class="space-y-1.5 text-xs border-t border-slate-800 pt-3 text-slate-300">
+                            <div class="flex justify-between"><span>Foncier:</span> <span class="font-semibold">7 200 € / ha</span></div>
+                            <div class="flex justify-between"><span>Volatilité Marchés:</span> <span class="font-semibold text-amber-400">Élevée</span></div>
+                        </div>
+                    </div>
+                    <button class="w-full mt-5 py-2 bg-slate-800 group-hover:bg-emerald-600 text-slate-200 group-hover:text-white text-xs font-semibold rounded-lg transition">S'installer en Grand Est</button>
+                </div>
+
+                <!-- Occitanie -->
+                <div onclick="selectRegion('occitanie')" class="group cursor-pointer bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-emerald-500/50 rounded-xl p-5 transition-all flex flex-col justify-between hover:shadow-xl hover:shadow-emerald-950/30">
+                    <div>
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="font-bold text-lg text-emerald-400 group-hover:text-emerald-300">Occitanie</h3>
+                            <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Ovins & Vigne</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-4 leading-relaxed">Risques extrêmes de canicule. Épizooties (MHE) récurrentes sur l'élevage.</p>
+                        <div class="space-y-1.5 text-xs border-t border-slate-800 pt-3 text-slate-300">
+                            <div class="flex justify-between"><span>Foncier:</span> <span class="font-semibold">5 800 € / ha</span></div>
+                            <div class="flex justify-between"><span>Risque Épizootie:</span> <span class="font-semibold text-rose-400">Fort (MHE)</span></div>
+                        </div>
+                    </div>
+                    <button class="w-full mt-5 py-2 bg-slate-800 group-hover:bg-emerald-600 text-slate-200 group-hover:text-white text-xs font-semibold rounded-lg transition">S'installer en Occitanie</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN DASHBOARD SCREEN -->
+        <div id="screen-dashboard" class="hidden space-y-6">
+
+            <!-- Navigation Tabs -->
+            <div class="flex overflow-x-auto border-b border-slate-800 gap-2 pb-px">
+                <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 border-emerald-500 text-emerald-400 bg-slate-900 flex items-center gap-2">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Vue Générale
+                </button>
+                <button onclick="switchTab('crops')" id="tab-crops" class="tab-btn px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                    <i data-lucide="wheat" class="w-4 h-4"></i> Terres & Assurances
+                </button>
+                <button onclick="switchTab('livestock')" id="tab-livestock" class="tab-btn px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                    <i data-lucide="beef" class="w-4 h-4"></i> Cheptel & Sanitaire
+                </button>
+                <button onclick="switchTab('admin')" id="tab-admin" class="tab-btn px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 relative">
+                    <i data-lucide="file-check-2" class="w-4 h-4"></i> Administration & PAC
+                    <span id="admin-alert-dot" class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                </button>
+                <button onclick="switchTab('market')" id="tab-market" class="tab-btn px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                    <i data-lucide="shopping-cart" class="w-4 h-4"></i> Distribution & Prix
+                </button>
+                <button onclick="switchTab('botlog')" id="tab-botlog" class="tab-btn px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                    <i data-lucide="notebook-pen" class="w-4 h-4"></i> Journal du Bot
+                </button>
+            </div>
+
+            <!-- TAB: OVERVIEW -->
+            <div id="content-overview" class="tab-content space-y-6">
+                <!-- Summary KPI Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                        <div class="text-xs text-slate-400 font-medium">Trésorerie Actuelle</div>
+                        <div id="dash-cash" class="text-2xl font-bold text-emerald-400 mt-1">0 €</div>
+                        <div class="text-xs text-slate-500 mt-2 flex justify-between">
+                            <span>Solde Bancaire</span>
+                            <span id="dash-cash-status" class="text-emerald-500 font-semibold">Sain</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                        <div class="text-xs text-slate-400 font-medium">Charge Mentale & Stress</div>
+                        <div id="dash-stress-val" class="text-2xl font-bold text-rose-400 mt-1">20 %</div>
+                        <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div id="dash-stress-bar" class="bg-rose-500 h-full w-[20%] transition-all"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                        <div class="text-xs text-slate-400 font-medium">Statut Sanitaire Cheptel</div>
+                        <div id="dash-sanitary" class="text-2xl font-bold text-slate-200 mt-1">Sain</div>
+                        <div class="text-xs text-slate-500 mt-2 flex justify-between">
+                            <span>Vaccination MHE</span>
+                            <span id="dash-vac-status" class="text-rose-400 font-medium">Non à jour</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                        <div class="text-xs text-slate-400 font-medium">Couverture Assurance</div>
+                        <div id="dash-insurance" class="text-2xl font-bold text-slate-200 mt-1">Aucune</div>
+                        <div class="text-xs text-slate-500 mt-2 flex justify-between">
+                            <span>Risque Climat</span>
+                            <span class="text-amber-400 font-medium">Exposé</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Financial Graph -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                    <h3 class="font-bold text-sm text-slate-200 mb-4 flex items-center gap-2">
+                        <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
+                        Évolution Financière & Suivi des Charges (€)
+                    </h3>
+                    <div class="h-64">
+                        <canvas id="chart-finance"></canvas>
+                    </div>
+                </div>
+
+                <!-- Event Feed & Weather Alert -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
+                        <h3 class="font-bold text-sm text-slate-200 mb-3 flex items-center gap-2">
+                            <i data-lucide="rss" class="w-4 h-4 text-amber-400"></i>
+                            Fil d'Événements & Alertes Réglementaires
+                        </h3>
+                        <div id="event-feed" class="space-y-2 max-h-48 overflow-y-auto pr-2 text-xs"></div>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-sm text-slate-200 mb-3 flex items-center gap-2">
+                                <i data-lucide="cloud-lightning" class="w-4 h-4 text-sky-400"></i>
+                                Alertes Météo & Climat
+                            </h3>
+                            <div id="weather-box" class="p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs space-y-2">
+                                <div class="flex justify-between font-medium">
+                                    <span>Saison actuelle:</span>
+                                    <span id="weather-season" class="text-amber-300">Hiver</span>
+                                </div>
+                                <div id="climate-alert-text" class="text-slate-400 text-xs italic">
+                                    Conditions météorologiques normales.
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="restFarmer()" class="mt-4 py-2 bg-indigo-900/40 hover:bg-indigo-900/70 border border-indigo-700/50 text-indigo-300 rounded text-xs font-semibold flex items-center justify-center gap-2 transition">
+                            <i data-lucide="coffee" class="w-4 h-4"></i> Repos / Déconnexion (-15% Stress)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: CROPS & INSURANCE -->
+            <div id="content-crops" class="tab-content hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+                        <h3 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+                            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i> Assurance Récolte Multirisque
+                        </h3>
+                        <p class="text-xs text-slate-400">Couvre jusqu'à 70% des pertes en cas de gel, sécheresse ou grêle extrême.</p>
+                        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs space-y-2">
+                            <div class="flex justify-between"><span>Prime mensuelle:</span> <span class="font-bold text-amber-400">12 € / ha / mois</span></div>
+                            <div class="flex justify-between"><span>Statut actuel:</span> <span id="crop-ins-status" class="font-semibold text-rose-400">Non Assuré</span></div>
+                        </div>
+                        <button id="btn-toggle-insurance" onclick="toggleCropInsurance()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-semibold transition">Souscrire Assurance Climat</button>
+                    </div>
+
+                    <div class="md:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+                        <h3 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+                            <i data-lucide="sprout" class="w-4 h-4 text-emerald-400"></i> Assolement & Bio-Alternatives
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-2">
+                                <span class="font-bold text-xs text-amber-300">Blé Tendre</span>
+                                <div class="text-[11px] text-slate-400">Semé: <span id="crop-ble-ha" class="font-bold text-white">0 ha</span></div>
+                                <button onclick="plantCrop('ble', 10)" class="w-full py-1.5 bg-slate-800 hover:bg-emerald-600 text-xs text-slate-200 rounded transition font-medium">Semer 10 ha (220€/ha)</button>
+                            </div>
+
+                            <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-2">
+                                <span class="font-bold text-xs text-amber-400">Maïs Grain</span>
+                                <div class="text-[11px] text-slate-400">Semé: <span id="crop-mais-ha" class="font-bold text-white">0 ha</span></div>
+                                <button onclick="plantCrop('mais', 10)" class="w-full py-1.5 bg-slate-800 hover:bg-emerald-600 text-xs text-slate-200 rounded transition font-medium">Semer 10 ha (280€/ha)</button>
+                            </div>
+
+                            <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-2">
+                                <span class="font-bold text-xs text-emerald-400">Prairie Temporaire</span>
+                                <div class="text-[11px] text-slate-400">Semé: <span id="crop-prairie-ha" class="font-bold text-white">0 ha</span></div>
+                                <button onclick="plantCrop('prairie', 10)" class="w-full py-1.5 bg-slate-800 hover:bg-emerald-600 text-xs text-slate-200 rounded transition font-medium">Semer 10 ha (80€/ha)</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: LIVESTOCK & SANITARY -->
+            <div id="content-livestock" class="tab-content hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+                        <h3 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+                            <i data-lucide="syringe" class="w-4 h-4 text-rose-400"></i> Protection Épizooties & Vaccinations (MHE / FCO)
+                        </h3>
+                        <p class="text-xs text-slate-400">Sans vaccination obligatoire, une épidémie entraînera un abattage sanitaire partiel ou une quarantaine coûteuse imposée par la préfecture.</p>
+                        
+                        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs space-y-2">
+                            <div class="flex justify-between"><span>Coût campagne de vaccination:</span> <span class="font-bold text-slate-200">45 € / tête</span></div>
+                            <div class="flex justify-between"><span>Statut protection:</span> <span id="ls-vac-status-text" class="font-semibold text-rose-400">Non Protégé</span></div>
+                        </div>
+
+                        <button onclick="vaccinateHerds()" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-semibold transition">Vacciner l'ensemble du Troupeau</button>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+                        <h3 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+                            <i data-lucide="heart-pulse" class="w-4 h-4 text-emerald-400"></i> Gestion du Cheptel
+                        </h3>
+                        <div class="space-y-2 text-xs">
+                            <div class="flex justify-between text-slate-400"><span>Vaches Laitières:</span> <span id="ls-count" class="font-bold text-white">0 têtes</span></div>
+                            <div class="flex justify-between text-slate-400"><span>Santé globale:</span> <span id="ls-health-bar" class="font-bold text-emerald-400">100%</span></div>
+                            <div class="flex justify-between text-slate-400"><span>Fourrage disponible:</span> <span id="stock-fourrage" class="font-bold text-amber-300">0 T</span></div>
+                        </div>
+                        <div class="flex gap-2 pt-2">
+                            <button onclick="buyCows(5)" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-semibold">Acheter 5 Vaches (7 500 €)</button>
+                            <button onclick="sellCows(5)" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-semibold">Vendre 5 Vaches</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: ADMINISTRATION & PAC -->
+            <div id="content-admin" class="tab-content hidden space-y-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+                            <i data-lucide="file-text" class="w-4 h-4 text-indigo-400"></i> Déclaration PAC Annuelle (Telepac)
+                        </h3>
+                        <span class="text-xs px-2.5 py-1 bg-amber-950 text-amber-300 border border-amber-800 rounded font-medium">Date limite : 15 Mai</span>
+                    </div>
+
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        La déclaration PAC exige de cartographier chaque parcelle, de justifier du respect des normes environnementales BCAE (Bandes enherbées, non-taille des haies). Un retard entraîne une pénalité de **1% par jour de retard** sur l'aide globale.
+                    </p>
+
+                    <div class="p-4 bg-slate-950 rounded-lg border border-slate-800 text-xs space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span>Aide PAC brute estimée :</span>
+                            <span id="admin-pac-est" class="font-bold text-lg text-emerald-400">0 €</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span>Statut d'avancement du dossier :</span>
+                            <span id="admin-pac-state" class="font-bold text-rose-400">Non Déposé</span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <button onclick="submitPAC()" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-lg transition">
+                            Remplir et Déposer le Dossier Telepac (+15% Stress)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: MARKET & SUPERMARKETS -->
+            <div id="content-market" class="tab-content hidden space-y-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+                    <h3 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+                        <i data-lucide="building" class="w-4 h-4 text-rose-400"></i> Négociations Grande Distribution & Centrales d'Achat
+                    </h3>
+                    <p class="text-xs text-slate-400">
+                        La grande distribution applique des pénalités de hors-gabarit et impose des baisses de tarifs lors des négociations annuelles.
+                    </p>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                        <div class="p-4 bg-slate-950 rounded-lg border border-slate-800 space-y-2">
+                            <div class="text-slate-400 font-medium">Stock Laitier</div>
+                            <div id="mkt-stock-milk" class="text-xl font-bold text-white">0 L</div>
+                            <div class="text-[11px] text-slate-500">Prix imposé: <span id="mkt-milk-price" class="font-bold text-emerald-400">0.42 € / L</span></div>
+                            <button onclick="sellMilk()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded transition">Vendre à la Laiterie</button>
+                        </div>
+
+                        <div class="p-4 bg-slate-950 rounded-lg border border-slate-800 space-y-2">
+                            <div class="text-slate-400 font-medium">Stock Blé Tendre</div>
+                            <div id="mkt-stock-ble" class="text-xl font-bold text-white">0 q</div>
+                            <div class="text-[11px] text-slate-500">Prix Euronext: <span id="mkt-ble-price" class="font-bold text-emerald-400">22.00 € / q</span></div>
+                            <button onclick="sellHarvest('ble')" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded transition">Vendre le Blé</button>
+                        </div>
+
+                        <div class="p-4 bg-slate-950 rounded-lg border border-slate-800 space-y-2">
+                            <div class="text-slate-400 font-medium">Stock Maïs Grain</div>
+                            <div id="mkt-stock-mais" class="text-xl font-bold text-white">0 q</div>
+                            <div class="text-[11px] text-slate-500">Prix Marché: <span id="mkt-mais-price" class="font-bold text-emerald-400">20.50 € / q</span></div>
+                            <button onclick="sellHarvest('mais')" class="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded transition">Vendre le Maïs</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: BOT LOG -->
+            <div id="content-botlog" class="tab-content hidden space-y-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+                            <i data-lucide="bot" class="w-4 h-4 text-indigo-400"></i> Journal d'Arbitrage Automatique du Bot
+                        </h3>
+                        <button onclick="clearBotLogs()" class="text-xs px-2.5 py-1 bg-slate-800 text-slate-400 rounded">Effacer</button>
+                    </div>
+                    <div id="bot-log-list" class="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                        <div class="text-xs text-slate-500 italic text-center py-6">Aucune décision enregistrée par l'assistant IA.</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Modal Event Popup -->
+    <div id="modal-event" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex items-center gap-3">
+                <div id="modal-icon-box" class="p-3 bg-rose-950 text-rose-400 border border-rose-800 rounded-lg">
+                    <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 id="modal-title" class="font-bold text-base text-white">Alerte Crise Agricole</h3>
+                    <span id="modal-subtitle" class="text-xs text-slate-400">Événement imprévu</span>
+                </div>
+            </div>
+            <p id="modal-desc" class="text-xs text-slate-300 leading-relaxed"></p>
+            <div id="modal-actions" class="pt-2 flex flex-col gap-2"></div>
+        </div>
+    </div>
+
+    <!-- GAME LOGIC SCRIPT -->
+    <script>
+        const state = {
+            month: 1,
+            year: 1,
+            regionKey: null,
+            region: null,
+            cash: 50000,
+            landHa: 50,
+            stress: 20, // 0 to 100%
+            botActive: false,
+
+            // Insurance & Admin
+            insuredCrops: false,
+            pacSubmitted: false,
+            vaccinated: false,
+
+            crops: { ble: 0, mais: 0, prairie: 20 },
+            stock: { ble: 0, mais: 0, fourrage: 10, milk: 0 },
+
+            cows: 20,
+            cowHealth: 100,
+
+            market: { ble: 22.00, mais: 20.50, milk: 0.42 },
+
+            loans: [],
+            botLogs: [],
+            history: { months: [], cash: [], stress: [] }
+        };
+
+        const REGIONS = {
+            bretagne: { name: "Bretagne", landPrice: 6500, pacPerHa: 280 },
+            aquitaine: { name: "Nouvelle-Aquitaine", landPrice: 8000, pacPerHa: 260 },
+            grandest: { name: "Grand Est", landPrice: 7200, pacPerHa: 250 },
+            occitanie: { name: "Occitanie", landPrice: 5800, pacPerHa: 290 }
+        };
+
+        let chartFinance = null;
+
+        window.onload = function() {
+            lucide.createIcons();
+            initCharts();
+        };
+
+        function selectRegion(key) {
+            state.regionKey = key;
+            state.region = REGIONS[key];
+
+            document.getElementById('screen-setup').classList.add('hidden');
+            document.getElementById('screen-dashboard').classList.remove('hidden');
+            document.getElementById('game-status-bar').classList.remove('hidden');
+            document.getElementById('game-controls').classList.remove('hidden');
+
+            addEvent(`Installation réussie en ${state.region.name}. Trésorerie initiale: 50 000 €.`);
+            recordHistory();
+            updateUI();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('border-emerald-500', 'text-emerald-400', 'bg-slate-900');
+                el.classList.add('border-transparent', 'text-slate-400');
+            });
+
+            document.getElementById(`content-${tabId}`).classList.remove('hidden');
+            const btn = document.getElementById(`tab-${tabId}`);
+            btn.classList.add('border-emerald-500', 'text-emerald-400', 'bg-slate-900');
+            btn.classList.remove('border-transparent', 'text-slate-400');
+        }
+
+        function nextTurn() {
+            state.month++;
+            if(state.month > 12) {
+                state.month = 1;
+                state.year++;
+                state.pacSubmitted = false; // reset yearly PAC
+                addEvent("Nouvelle année d'exploitation ! Pensez à votre dossier Telepac avant mai.", "warn");
+            }
+
+            // Insurance cost
+            if(state.insuredCrops) {
+                const insCost = state.landHa * 12;
+                state.cash -= insCost;
+            }
+
+            // PAC penalties check in June
+            if(state.month === 6 && !state.pacSubmitted) {
+                const penalty = (state.landHa * state.region.pacPerHa) * 0.3;
+                state.stress = Math.min(100, state.stress + 25);
+                addEvent(`Dossier PAC déposé en retard ! Pénalité administrative: -${penalty.toFixed(0)} €`, "danger");
+            }
+
+            // Annual PAC payout in December
+            if(state.month === 12 && state.pacSubmitted) {
+                const pacAmount = state.landHa * state.region.pacPerHa;
+                state.cash += pacAmount;
+                addEvent(`Versement de la prime PAC : +${pacAmount.toFixed(0)} €`, "success");
+            }
+
+            // Natural stress buildup
+            state.stress = Math.min(100, state.stress + 2);
+
+            triggerRandomCrises();
+            processLivestock();
+            processCrops();
+
+            if(state.botActive) {
+                runBotLogic();
+            }
+
+            recordHistory();
+            updateUI();
+        }
+
+        function triggerRandomCrises() {
+            // Gel printanier en Avril
+            if(state.month === 4 && Math.random() < 0.4) {
+                let lossPct = state.insuredCrops ? 0.2 : 0.6;
+                state.stress = Math.min(100, state.stress + 15);
+                openModal(
+                    "Gel Printanier Tardif (-" + (lossPct*100) + "% de récolte)",
+                    "Des températures négatives ont détruit les bourgeons et jeunes pousses.",
+                    state.insuredCrops ? "Heureusement, votre Assurance Récolte a amorti 70% des pertes financières." : "Vous n'étiez pas assuré. Les dégâts impacteront directement vos silos au moment des récoltes."
+                );
+            }
+
+            // Épizootie MHE / FCO sur l'élevage
+            if(Math.random() < 0.15 && state.cows > 0) {
+                if(!state.vaccinated) {
+                    const deadCows = Math.ceil(state.cows * 0.25);
+                    state.cows -= deadCows;
+                    state.stress = Math.min(100, state.stress + 20);
+                    openModal(
+                        "Épidémie de Fièvre Catarrhale / MHE",
+                        `Une crise sanitaire a frappé votre région. En l'absence de vaccination préventive, vous perdez ${deadCows} vaches et subissez une quarantaine préfectorale.`,
+                        "Campagne de soins vétérinaires d'urgence nécessaire."
+                    );
+                }
+            }
+        }
+
+        function processLivestock() {
+            if(state.cows <= 0) return;
+            const reqFeed = state.cows * 0.2;
+            if(state.stock.fourrage >= reqFeed) {
+                state.stock.fourrage -= reqFeed;
+            } else {
+                const missing = reqFeed - state.stock.fourrage;
+                state.stock.fourrage = 0;
+                const cost = missing * 190;
+                state.cash -= cost;
+                state.cowHealth = Math.max(30, state.cowHealth - 8);
+            }
+
+            const milkProd = Math.round(state.cows * 580 * (state.cowHealth / 100));
+            state.stock.milk += milkProd;
+        }
+
+        function processCrops() {
+            if(state.month === 7 && state.crops.ble > 0) {
+                const yieldHa = 70;
+                const total = Math.round(state.crops.ble * yieldHa);
+                state.stock.ble += total;
+                state.crops.ble = 0;
+            }
+            if(state.month === 9 && state.crops.mais > 0) {
+                const yieldHa = 85;
+                const total = Math.round(state.crops.mais * yieldHa);
+                state.stock.mais += total;
+                state.crops.mais = 0;
+            }
+        }
+
+        function toggleCropInsurance() {
+            state.insuredCrops = !state.insuredCrops;
+            addEvent(state.insuredCrops ? "Souscription à l'Assurance Récolte Multirisque effectuée." : "Résiliation de l'assurance récolte.");
+            updateUI();
+        }
+
+        function vaccinateHerds() {
+            const cost = state.cows * 45;
+            if(state.cash >= cost) {
+                state.cash -= cost;
+                state.vaccinated = true;
+                addEvent(`Troupeau entièrement vacciné contre la MHE/FCO (-${cost} €).`, "success");
+                updateUI();
+            } else {
+                addEvent("Trésorerie insuffisante pour la vaccination.", "danger");
+            }
+        }
+
+        function submitPAC() {
+            if(state.pacSubmitted) return;
+            state.pacSubmitted = true;
+            state.stress = Math.min(100, state.stress + 10);
+            addEvent("Dossier Telepac annuel transmis aux services de l'État.", "success");
+            updateUI();
+        }
+
+        function restFarmer() {
+            state.stress = Math.max(0, state.stress - 15);
+            addEvent("Repos pris. Charge mentale et stress diminués.");
+            updateUI();
+        }
+
+        function plantCrop(type, ha) {
+            const costPerHa = type === 'ble' ? 220 : type === 'mais' ? 280 : 80;
+            const cost = ha * costPerHa;
+            if(state.cash >= cost) {
+                state.cash -= cost;
+                state.crops[type] += ha;
+                addEvent(`Semis de ${ha} ha de ${type.toUpperCase()}`);
+                updateUI();
+            }
+        }
+
+        function sellMilk() {
+            if(state.stock.milk > 0) {
+                const rev = state.stock.milk * state.market.milk;
+                state.cash += rev;
+                addEvent(`Vente de ${state.stock.milk} L de lait à la laiterie : +${rev.toFixed(0)} €`);
+                state.stock.milk = 0;
+                updateUI();
+            }
+        }
+
+        function sellHarvest(type) {
+            if(type === 'ble' && state.stock.ble > 0) {
+                const rev = state.stock.ble * state.market.ble;
+                state.cash += rev;
+                addEvent(`Vente de ${state.stock.ble} q de blé : +${rev.toFixed(0)} €`);
+                state.stock.ble = 0;
+            }
+            updateUI();
+        }
+
+        function toggleBot() {
+            state.botActive = !state.botActive;
+            const btnText = document.getElementById('bot-status-text');
+            if(state.botActive) {
+                btnText.textContent = "Mode BOT : ACTIF";
+                document.getElementById('btn-toggle-bot').classList.add('bg-indigo-600', 'text-white');
+                addBotLog("Bot Activé", "Prise en compte autonome du stress, des déclarations Telepac et de la prévention sanitaire.");
+            } else {
+                btnText.textContent = "Mode BOT : Inactif";
+                document.getElementById('btn-toggle-bot').classList.remove('bg-indigo-600', 'text-white');
+            }
+        }
+
+        function runBotLogic() {
+            // PAC submission logic
+            if(state.month >= 3 && !state.pacSubmitted) {
+                submitPAC();
+                addBotLog("Telepac Automatique", "Dossier PAC annuel déposé avant la date limite du 15 mai pour garantir les aides.");
+            }
+
+            // Sanitary protection
+            if(!state.vaccinated && state.cows > 0 && state.cash > (state.cows * 45)) {
+                vaccinateHerds();
+                addBotLog("Prévention Sanitaire", "Vaccination MHE/FCO administrée préventivement au troupeau.");
+            }
+
+            // Insurance against climate
+            if(!state.insuredCrops && state.cash > 5000) {
+                toggleCropInsurance();
+                addBotLog("Prudence Climat", "Souscription de l'assurance multirisque récolte.");
+            }
+
+            // Rest farmer if stress is high
+            if(state.stress > 60) {
+                restFarmer();
+                addBotLog("Gestion Stress", "Mise au repos pour éviter le surmenage agricole.");
+            }
+
+            // Direct sales
+            if(state.stock.milk >= 3000) sellMilk();
+            if(state.stock.ble > 0) sellHarvest('ble');
+        }
+
+        function addBotLog(title, rationale) {
+            const container = document.getElementById('bot-log-list');
+            if(container.children[0]?.textContent.includes('Aucune')) container.innerHTML = '';
+            const card = document.createElement('div');
+            card.className = "p-3 bg-slate-950 border border-indigo-900/40 rounded-lg text-xs space-y-1";
+            card.innerHTML = `
+                <div class="flex justify-between items-center font-bold text-indigo-300">
+                    <span>${title}</span>
+                    <span class="text-[10px] text-slate-500">Mois ${state.month}</span>
+                </div>
+                <p class="text-slate-400 text-[11px]">${rationale}</p>
+            `;
+            container.prepend(card);
+        }
+
+        function clearBotLogs() {
+            document.getElementById('bot-log-list').innerHTML = `<div class="text-xs text-slate-500 italic text-center py-6">Aucune décision enregistrée par l'assistant IA.</div>`;
+        }
+
+        function openModal(title, desc, details) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-desc').textContent = desc + " " + details;
+            document.getElementById('modal-actions').innerHTML = `
+                <button onclick="closeModal()" class="w-full py-2 bg-emerald-600 text-white rounded text-xs font-semibold">Fermer & Continuer</button>
+            `;
+            document.getElementById('modal-event').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-event').classList.add('hidden');
+        }
+
+        function addEvent(text, type = 'info') {
+            const container = document.getElementById('event-feed');
+            const item = document.createElement('div');
+            let color = 'text-slate-300 border-slate-800';
+            if(type === 'warn') color = 'text-amber-300 border-amber-900/40 bg-amber-950/20';
+            if(type === 'danger') color = 'text-rose-400 border-rose-900/40 bg-rose-950/20';
+            if(type === 'success') color = 'text-emerald-400 border-emerald-900/40 bg-emerald-950/20';
+
+            item.className = `p-2 rounded border text-xs flex justify-between ${color}`;
+            item.innerHTML = `<span>${text}</span> <span class="text-[10px] text-slate-500">Mois ${state.month}</span>`;
+            container.prepend(item);
+        }
+
+        function updateUI() {
+            document.getElementById('stat-date').textContent = `Mois ${state.month} (An ${state.year})`;
+            document.getElementById('stat-cash').textContent = `${Math.round(state.cash).toLocaleString()} €`;
+            document.getElementById('stat-stress').textContent = `${state.stress}%`;
+            document.getElementById('stat-pac-status').textContent = state.pacSubmitted ? "PAC: Déposée" : "PAC: Non déposée";
+            document.getElementById('stat-pac-status').className = state.pacSubmitted ? "font-medium text-emerald-400" : "font-medium text-rose-400";
+
+            document.getElementById('dash-cash').textContent = `${Math.round(state.cash).toLocaleString()} €`;
+            document.getElementById('dash-stress-val').textContent = `${state.stress}%`;
+            document.getElementById('dash-stress-bar').style.width = `${state.stress}%`;
+            document.getElementById('dash-vac-status').textContent = state.vaccinated ? "À jour" : "Non vacciné";
+            document.getElementById('dash-vac-status').className = state.vaccinated ? "text-emerald-400 font-medium" : "text-rose-400 font-medium";
+
+            document.getElementById('dash-insurance').textContent = state.insuredCrops ? "Multirisque" : "Aucune";
+            document.getElementById('crop-ins-status').textContent = state.insuredCrops ? "Assuré" : "Non Assuré";
+            document.getElementById('crop-ins-status').className = state.insuredCrops ? "font-semibold text-emerald-400" : "font-semibold text-rose-400";
+            document.getElementById('btn-toggle-insurance').textContent = state.insuredCrops ? "Résilier l'Assurance" : "Souscrire Assurance Climat";
+
+            document.getElementById('crop-ble-ha').textContent = `${state.crops.ble} ha`;
+            document.getElementById('crop-mais-ha').textContent = `${state.crops.mais} ha`;
+            document.getElementById('crop-prairie-ha').textContent = `${state.crops.prairie} ha`;
+
+            document.getElementById('ls-count').textContent = `${state.cows} têtes`;
+            document.getElementById('ls-health-bar').textContent = `${state.cowHealth}%`;
+            document.getElementById('stock-fourrage').textContent = `${state.stock.fourrage.toFixed(1)} T`;
+            document.getElementById('ls-vac-status-text').textContent = state.vaccinated ? "Vacciné" : "Non Protégé";
+            document.getElementById('ls-vac-status-text').className = state.vaccinated ? "font-semibold text-emerald-400" : "font-semibold text-rose-400";
+
+            document.getElementById('admin-pac-est').textContent = `${(state.landHa * (state.region?.pacPerHa || 0)).toLocaleString()} €`;
+            document.getElementById('admin-pac-state').textContent = state.pacSubmitted ? "Déposé et Validé" : "Non Déposé";
+            document.getElementById('admin-pac-state').className = state.pacSubmitted ? "font-bold text-emerald-400" : "font-bold text-rose-400";
+            document.getElementById('admin-alert-dot').style.display = state.pacSubmitted ? "none" : "block";
+
+            document.getElementById('mkt-stock-milk').textContent = `${state.stock.milk.toLocaleString()} L`;
+            document.getElementById('mkt-stock-ble').textContent = `${state.stock.ble} q`;
+            document.getElementById('mkt-stock-mais').textContent = `${state.stock.mais} q`;
+
+            updateCharts();
+        }
+
+        function initCharts() {
+            const ctx1 = document.getElementById('chart-finance').getContext('2d');
+            chartFinance = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'Trésorerie (€)', data: [], borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.3 },
+                        { label: 'Stress / Charge Mentale (%)', data: [], borderColor: '#f43f5e', borderDash: [5, 5], fill: false, tension: 0.3 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#9ca3af' } } },
+                    scales: {
+                        x: { ticks: { color: '#6b7280' }, grid: { color: '#1f2937' } },
+                        y: { ticks: { color: '#6b7280' }, grid: { color: '#1f2937' } }
+                    }
+                }
+            });
+        }
+
+        function recordHistory() {
+            const label = `M${state.month}-A${state.year}`;
+            state.history.months.push(label);
+            state.history.cash.push(Math.round(state.cash));
+            state.history.stress.push(state.stress);
+
+            if(state.history.months.length > 15) {
+                state.history.months.shift();
+                state.history.cash.shift();
+                state.history.stress.shift();
+            }
+        }
+
+        function updateCharts() {
+            if(!chartFinance) return;
+            chartFinance.data.labels = state.history.months;
+            chartFinance.data.datasets[0].data = state.history.cash;
+            chartFinance.data.datasets[1].data = state.history.stress;
+            chartFinance.update();
+        }
+    </script>
+</body>
+</html>
